@@ -119,6 +119,8 @@ public:
 
   void Split();
 
+  int Count_Neighbour();
+
   //bool CompareRoutingEntryEvery(iMRoutingTable compare_table,iMRoutingTableEntry compare_entry);
 
 protected:

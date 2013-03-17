@@ -1848,7 +1848,10 @@ iMRoutingTable
       entry.nextAddr=iter->second.GetNextHop ();
 	  //std::cout<< entry.nextAddr <<"\n";
 	  //std::cout<<"4step run getT in aodv\n";
-      entry.distance=iter->second.GetHop ();
+	  if(iter->second.GetHop () > 0)
+	  entry.distance=iter->second.GetHop ();
+	  else
+	  entry.distance=99999;
 	  //std::cout<< entry.distance <<"\n";
 	  //std::cout<<"5step run getT in aodv\n";
       entry.interface=iter->second.GetInterface ();

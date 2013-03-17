@@ -29,8 +29,8 @@
  * US Department of Defense (DoD), and ITTC at The University of Kansas.
  */
 
-#ifndef DSDV_RTABLE_H
-#define DSDV_RTABLE_H
+#ifndef IDRM_RTABLE_H
+#define IDRM_RTABLE_H
 
 #include <cassert>
 #include <map>
@@ -42,7 +42,7 @@
 #include "ns3/output-stream-wrapper.h"
 
 namespace ns3 {
-namespace dsdv {
+namespace idrm {
 enum RouteFlags
 {
   VALID = 0,     // !< VALID
@@ -50,7 +50,7 @@ enum RouteFlags
 };
 
 /**
- * \ingroup dsdv
+ * \ingroup idrm
  * \brief Routing table entry
  */
 class RoutingTableEntry
@@ -213,8 +213,8 @@ private:
 };
 
 /**
- * \ingroup dsdv
- * \brief The Routing table used by DSDV protocol
+ * \ingroup idrm
+ * \brief The Routing table used by IDRM protocol
  */
 class RoutingTable
 {
@@ -347,4 +347,4 @@ private:
 };
 }
 }
-#endif /* DSDV_RTABLE_H */
+#endif /* IDRM_RTABLE_H */

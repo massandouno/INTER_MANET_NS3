@@ -1848,7 +1848,10 @@ iMRoutingTable
       entry.nextAddr=iter->second.GetNextHop ();
 	  //std::cout<< entry.nextAddr <<"\n";
 	  //std::cout<<"4step run getT in aodv\n";
-      entry.distance=iter->second.GetHop ();
+	  if(iter->second.GetHop () > 0)
+	  entry.distance=iter->second.GetHop ();
+	  else
+	  entry.distance=99999;
 	  //std::cout<< entry.distance <<"\n";
 	  //std::cout<<"5step run getT in aodv\n";
       entry.interface=iter->second.GetInterface ();
@@ -1879,7 +1882,7 @@ void
       
       if(ets.find(iter->first)==ets.end())
       {
-          std::cout<<"enter if\n";
+          std::cout<<"enter if!!!!!!!!!!!!!!!!!\n";
           RoutingTableEntry rt (iter->second.dev, iter->second.destAddr, iter->second.vSeqNo, iter->second.m_seqNo, iter->second.interface, iter->second.distance, iter->second.nextAddr, iter->second.lifetime);
 		  if(iter->second.m_flag == 0)
           {rt.SetFlag(VALID);}

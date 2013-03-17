@@ -30,7 +30,7 @@
  * US Department of Defense (DoD), and ITTC at The University of Kansas.
  */
 
-#include "dsdv-routing-protocol.h"
+#include "idrm-routing-protocol.h"
 #include "ns3/log.h"
 #include "ns3/inet-socket-address.h"
 #include "ns3/trace-source-accessor.h"
@@ -40,16 +40,16 @@
 #include "ns3/double.h"
 #include "ns3/uinteger.h"
 
-NS_LOG_COMPONENT_DEFINE ("DsdvRoutingProtocol");
+NS_LOG_COMPONENT_DEFINE ("IdrmRoutingProtocol");
 
 namespace ns3 {
-namespace dsdv {
+namespace idrm {
 NS_OBJECT_ENSURE_REGISTERED (RoutingProtocol);
 
-/// UDP Port for DSDV control traffic
-const uint32_t RoutingProtocol::DSDV_PORT = 269;
+/// UDP Port for IDRM control traffic
+const uint32_t RoutingProtocol::IDRM_PORT = 269;
 
-/// Tag used by DSDV implementation
+/// Tag used by IDRM implementation
 struct DeferredRouteOutputTag : public Tag
 {
   /// Positive if output device is fixed in RouteOutput
@@ -64,7 +64,7 @@ struct DeferredRouteOutputTag : public Tag
   static TypeId
   GetTypeId ()
   {
-    static TypeId tid = TypeId ("ns3::dsdv::DeferredRouteOutputTag").SetParent<Tag> ();
+    static TypeId tid = TypeId ("ns3::idrm::DeferredRouteOutputTag").SetParent<Tag> ();
     return tid;
   }
 
@@ -102,7 +102,7 @@ struct DeferredRouteOutputTag : public Tag
 TypeId
 RoutingProtocol::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::dsdv::RoutingProtocol")
+  static TypeId tid = TypeId ("ns3::idrm::RoutingProtocol")
     .SetParent<Ipv4RoutingProtocol> ()
     .AddConstructor<RoutingProtocol> ()
     .AddAttribute ("PeriodicUpdateInterval","Periodic interval between exchange of full routing tables among nodes. ",
@@ -199,6 +199,7 @@ RoutingProtocol::RoutingProtocol ()
   : m_routingTable (),
     m_advRoutingTable (),
     m_queue (),
+    m_nb(Seconds(3)),
     m_periodicUpdateTimer (Timer::CANCEL_ON_DESTROY)
 {
   m_uniformRandomVariable = CreateObject<UniformRandomVariable> ();
@@ -234,6 +235,7 @@ RoutingProtocol::Start ()
   m_queue.SetMaxPacketsPerDst (m_maxQueuedPacketsPerDst);
   m_queue.SetMaxQueueLen (m_maxQueueLen);
   m_queue.SetQueueTimeout (m_maxQueueTime);
+  m_nb.ScheduleTimer();
   m_routingTable.Setholddowntime (Time (Holdtimes * m_periodicUpdateInterval));
   m_advRoutingTable.Setholddowntime (Time (Holdtimes * m_periodicUpdateInterval));
   m_scb = MakeCallback (&RoutingProtocol::Send,this);
@@ -257,7 +259,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p,
   if (m_socketAddresses.empty ())
     {
       sockerr = Socket::ERROR_NOROUTETOHOST;
-      NS_LOG_LOGIC ("No dsdv interfaces");
+      NS_LOG_LOGIC ("No idrm interfaces");
       Ptr<Ipv4Route> route;
       return route;
     }
@@ -365,7 +367,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
                                  << " to destination " << header.GetDestination ());
   if (m_socketAddresses.empty ())
     {
-      NS_LOG_DEBUG ("No dsdv interfaces");
+      NS_LOG_DEBUG ("No idrm interfaces");
       return false;
     }
   NS_ASSERT (m_ipv4 != 0);
@@ -376,7 +378,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
   Ipv4Address dst = header.GetDestination ();
   Ipv4Address origin = header.GetSource ();
 
-  // DSDV is not a multicast routing protocol
+  // IDRM is not a multicast routing protocol
   if (dst.IsMulticast ())
     {
       return false;
@@ -401,7 +403,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p,
           return true;
         }
     }
-  // LOCAL DELIVARY TO DSDV INTERFACES
+  // LOCAL DELIVARY TO IDRM INTERFACES
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
     {
@@ -484,17 +486,17 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
   // rt->SetSource (hdr.GetSource ());
   //
   // Source address selection here is tricky.  The loopback route is
-  // returned when DSDV does not have a route; this causes the packet
+  // returned when IDRM does not have a route; this causes the packet
   // to be looped back and handled (cached) in RouteInput() method
   // while a route is found. However, connection-oriented protocols
   // like TCP need to create an endpoint four-tuple (src, src port,
   // dst, dst port) and create a pseudo-header for checksumming.  So,
-  // DSDV needs to guess correctly what the eventual source address
+  // IDRM needs to guess correctly what the eventual source address
   // will be.
   //
   // For single interface, single address nodes, this is not a problem.
   // When there are possibly multiple outgoing interfaces, the policy
-  // implemented here is to pick the first available DSDV interface.
+  // implemented here is to pick the first available IDRM interface.
   // If RouteOutput() caller specified an outgoing interface, that
   // further constrains the selection of source address
   //
@@ -517,14 +519,14 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
     {
       rt->SetSource (j->second.GetLocal ());
     }
-  NS_ASSERT_MSG (rt->GetSource () != Ipv4Address (), "Valid DSDV source address not found");
+  NS_ASSERT_MSG (rt->GetSource () != Ipv4Address (), "Valid IDRM source address not found");
   rt->SetGateway (Ipv4Address ("127.0.0.1"));
   rt->SetOutputDevice (m_lo);
   return rt;
 }
 
 void
-RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
+RoutingProtocol::RecvIdrm (Ptr<Socket> socket)
 {
   Address sourceAddress;
   Ptr<Packet> advpacket = Create<Packet> ();
@@ -534,25 +536,36 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
   Ipv4Address receiver = m_socketAddresses[socket].GetLocal ();
   Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
   uint32_t packetSize = packet->GetSize ();
-  NS_LOG_FUNCTION (m_mainAddress << " received dsdv packet of size: " << packetSize
+  NS_LOG_FUNCTION (m_mainAddress << " received idrm packet of size: " << packetSize
                                  << " and packet id: " << packet->GetUid ());
   uint32_t count = 0;
-  for (; packetSize > 0; packetSize = packetSize - 12)
-    {
+  m_nb.Update(sender,Seconds(3));
+  m_nc[receiver] = m_nb.GetSize();
+  IdrmHeader routeCount;
+  	//cout << "packet size: " << packetSize << endl;
+  packet->RemoveHeader (routeCount);
+  //cout << "route count: " << routeCount.GetDstSeqno() << endl;
+  packetSize -= 12;
+  //std::cout<< routeCount.GetDstSeqno() <<endl; 
+  for (int i = 0; i < (int)routeCount.GetDstSeqno(); i++)
+    {   
+      //cout << "current i: "<<i <<endl;
       count = 0;
-      DsdvHeader dsdvHeader, tempDsdvHeader;
-      packet->RemoveHeader (dsdvHeader);
-      NS_LOG_DEBUG ("Processing new update for " << dsdvHeader.GetDst ());
+      IdrmHeader idrmHeader, tempIdrmHeader;
+	  //cout << packet->GetSize()<<endl;
+      packet->RemoveHeader (idrmHeader);
+      packetSize = packetSize - 12;
+      NS_LOG_DEBUG ("Processing new update for " << idrmHeader.GetDst ());
       /*Verifying if the packets sent by me were returned back to me. If yes, discarding them!*/
       for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
            != m_socketAddresses.end (); ++j)
         {
           Ipv4InterfaceAddress interface = j->second;
-          if (dsdvHeader.GetDst () == interface.GetLocal ())
+          if (idrmHeader.GetDst () == interface.GetLocal ())
             {
-              if (dsdvHeader.GetDstSeqno () % 2 == 1)
+              if (idrmHeader.GetDstSeqno () % 2 == 1)
                 {
-                  NS_LOG_DEBUG ("Sent Dsdv update back to the same Destination, "
+                  NS_LOG_DEBUG ("Sent Idrm update back to the same Destination, "
                                 "with infinite metric. Time left to send fwd update: "
                                 << m_periodicUpdateTimer.GetDelayLeft ());
                   count++;
@@ -568,23 +581,23 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
         {
           continue;
         }
-      NS_LOG_DEBUG ("Received a DSDV packet from "
-                    << sender << " to " << receiver << ". Details are: Destination: " << dsdvHeader.GetDst () << ", Seq No: "
-                    << dsdvHeader.GetDstSeqno () << ", HopCount: " << dsdvHeader.GetHopCount ());
+      NS_LOG_DEBUG ("Received a IDRM packet from "
+                    << sender << " to " << receiver << ". Details are: Destination: " << idrmHeader.GetDst () << ", Seq No: "
+                    << idrmHeader.GetDstSeqno () << ", HopCount: " << idrmHeader.GetHopCount ());
       RoutingTableEntry fwdTableEntry, advTableEntry;
       EventId event;
-      bool permanentTableVerifier = m_routingTable.LookupRoute (dsdvHeader.GetDst (),fwdTableEntry);
+      bool permanentTableVerifier = m_routingTable.LookupRoute (idrmHeader.GetDst (),fwdTableEntry);
       if (permanentTableVerifier == false)
         {
-          if (dsdvHeader.GetDstSeqno () % 2 != 1)
+          if (idrmHeader.GetDstSeqno () % 2 != 1)
             {
               NS_LOG_DEBUG ("Received New Route!");
               RoutingTableEntry newEntry (
                 /*device=*/ dev, /*dst=*/
-                dsdvHeader.GetDst (), /*seqno=*/
-                dsdvHeader.GetDstSeqno (),
+                idrmHeader.GetDst (), /*seqno=*/
+                idrmHeader.GetDstSeqno (),
                 /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0),
-                /*hops=*/ dsdvHeader.GetHopCount (), /*next hop=*/
+                /*hops=*/ idrmHeader.GetHopCount (), /*next hop=*/
                 sender, /*lifetime=*/
                 Simulator::Now (), /*settlingTime*/
                 m_settlingTime, /*entries changed*/
@@ -603,7 +616,7 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
         }
       else
         {
-          if (!m_advRoutingTable.LookupRoute (dsdvHeader.GetDst (),advTableEntry))
+          if (!m_advRoutingTable.LookupRoute (idrmHeader.GetDst (),advTableEntry))
             {
               RoutingTableEntry tr;
               std::map<Ipv4Address, RoutingTableEntry> allRoutes;
@@ -614,33 +627,33 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
                 }
               // present in fwd table and not in advtable
               m_advRoutingTable.AddRoute (fwdTableEntry);
-              m_advRoutingTable.LookupRoute (dsdvHeader.GetDst (),advTableEntry);
+              m_advRoutingTable.LookupRoute (idrmHeader.GetDst (),advTableEntry);
             }
-          if (dsdvHeader.GetDstSeqno () % 2 != 1)
+          if (idrmHeader.GetDstSeqno () % 2 != 1)
             {
-              if (dsdvHeader.GetDstSeqno () > advTableEntry.GetSeqNo ())
+              if (idrmHeader.GetDstSeqno () > advTableEntry.GetSeqNo ())
                 {
                   // Received update with better seq number. Clear any old events that are running
-                  if (m_advRoutingTable.ForceDeleteIpv4Event (dsdvHeader.GetDst ()))
+                  if (m_advRoutingTable.ForceDeleteIpv4Event (idrmHeader.GetDst ()))
                     {
                       NS_LOG_DEBUG ("Canceling the timer to update route with better seq number");
                     }
                   // if its a changed metric *nomatter* where the update came from, wait  for WST
-                  if (dsdvHeader.GetHopCount () != advTableEntry.GetHop ())
+                  if (idrmHeader.GetHopCount () != advTableEntry.GetHop ())
                     {
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      advTableEntry.SetSeqNo (idrmHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
+                      advTableEntry.SetHop (idrmHeader.GetHopCount ());
                       NS_LOG_DEBUG ("Received update with better sequence number and changed metric.Waiting for WST");
-                      Time tempSettlingtime = GetSettlingTime (dsdvHeader.GetDst ());
+                      Time tempSettlingtime = GetSettlingTime (idrmHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time:" << tempSettlingtime.GetSeconds ()
                                                            << "s as there is no event running for this route");
                       event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
-                      m_advRoutingTable.AddIpv4Event (dsdvHeader.GetDst (),event);
+                      m_advRoutingTable.AddIpv4Event (idrmHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
                       m_routingTable.Update (advTableEntry);
@@ -649,38 +662,38 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
                   else
                     {
                       // Received update with better seq number and same metric.
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      advTableEntry.SetSeqNo (idrmHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
+                      advTableEntry.SetHop (idrmHeader.GetHopCount ());
                       m_advRoutingTable.Update (advTableEntry);
                       NS_LOG_DEBUG ("Route with better sequence number and same metric received. Advertised without WST");
                     }
                 }
-              else if (dsdvHeader.GetDstSeqno () == advTableEntry.GetSeqNo ())
+              else if (idrmHeader.GetDstSeqno () == advTableEntry.GetSeqNo ())
                 {
-                  if (dsdvHeader.GetHopCount () < advTableEntry.GetHop ())
+                  if (idrmHeader.GetHopCount () < advTableEntry.GetHop ())
                     {
                       /*Received update with same seq number and better hop count.
                        * As the metric is changed, we will have to wait for WST before sending out this update.
                        */
                       NS_LOG_DEBUG ("Canceling any existing timer to update route with same sequence number "
                                     "and better hop count");
-                      m_advRoutingTable.ForceDeleteIpv4Event (dsdvHeader.GetDst ());
-                      advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                      m_advRoutingTable.ForceDeleteIpv4Event (idrmHeader.GetDst ());
+                      advTableEntry.SetSeqNo (idrmHeader.GetDstSeqno ());
                       advTableEntry.SetLifeTime (Simulator::Now ());
                       advTableEntry.SetFlag (VALID);
                       advTableEntry.SetEntriesChanged (true);
                       advTableEntry.SetNextHop (sender);
-                      advTableEntry.SetHop (dsdvHeader.GetHopCount ());
-                      Time tempSettlingtime = GetSettlingTime (dsdvHeader.GetDst ());
+                      advTableEntry.SetHop (idrmHeader.GetHopCount ());
+                      Time tempSettlingtime = GetSettlingTime (idrmHeader.GetDst ());
                       advTableEntry.SetSettlingTime (tempSettlingtime);
                       NS_LOG_DEBUG ("Added Settling Time," << tempSettlingtime.GetSeconds ()
                                                            << " as there is no current event running for this route");
                       event = Simulator::Schedule (tempSettlingtime,&RoutingProtocol::SendTriggeredUpdate,this);
-                      m_advRoutingTable.AddIpv4Event (dsdvHeader.GetDst (),event);
+                      m_advRoutingTable.AddIpv4Event (idrmHeader.GetDst (),event);
                       NS_LOG_DEBUG ("EventCreated EventUID: " << event.GetUid ());
                       // if received changed metric, use it but adv it only after wst
                       m_routingTable.Update (advTableEntry);
@@ -691,7 +704,7 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
                       /*Received update with same seq number but with same or greater hop count.
                        * Discard that update.
                        */
-                      if (not m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                      if (not m_advRoutingTable.AnyRunningEvent (idrmHeader.GetDst ()))
                         {
                           /*update the timer only if nexthop address matches thus discarding
                            * updates to that destination from other nodes.
@@ -702,34 +715,34 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
                               m_routingTable.Update (advTableEntry);
                             }
                           m_advRoutingTable.DeleteRoute (
-                            dsdvHeader.GetDst ());
+                            idrmHeader.GetDst ());
                         }
                       NS_LOG_DEBUG ("Received update with same seq number and "
-                                    "same/worst metric for, " << dsdvHeader.GetDst () << ". Discarding the update.");
+                                    "same/worst metric for, " << idrmHeader.GetDst () << ". Discarding the update.");
                     }
                 }
               else
                 {
                   // Received update with an old sequence number. Discard the update
-                  if (not m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                  if (not m_advRoutingTable.AnyRunningEvent (idrmHeader.GetDst ()))
                     {
-                      m_advRoutingTable.DeleteRoute (dsdvHeader.GetDst ());
+                      m_advRoutingTable.DeleteRoute (idrmHeader.GetDst ());
                     }
-                  NS_LOG_DEBUG (dsdvHeader.GetDst () << " : Received update with old seq number. Discarding the update.");
+                  NS_LOG_DEBUG (idrmHeader.GetDst () << " : Received update with old seq number. Discarding the update.");
                 }
             }
           else
             {
               NS_LOG_DEBUG ("Route with infinite metric received for "
-                            << dsdvHeader.GetDst () << " from " << sender);
+                            << idrmHeader.GetDst () << " from " << sender);
               // Delete route only if update was received from my nexthop neighbor
               if (sender == advTableEntry.GetNextHop ())
                 {
                   NS_LOG_DEBUG ("Triggering an update for this unreachable route:");
                   std::map<Ipv4Address, RoutingTableEntry> dstsWithNextHopSrc;
-                  m_routingTable.GetListOfDestinationWithNextHop (dsdvHeader.GetDst (),dstsWithNextHopSrc);
-                  m_routingTable.DeleteRoute (dsdvHeader.GetDst ());
-                  advTableEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+                  m_routingTable.GetListOfDestinationWithNextHop (idrmHeader.GetDst (),dstsWithNextHopSrc);
+                  m_routingTable.DeleteRoute (idrmHeader.GetDst ());
+                  advTableEntry.SetSeqNo (idrmHeader.GetDstSeqno ());
                   advTableEntry.SetEntriesChanged (true);
                   m_advRoutingTable.Update (advTableEntry);
                   for (std::map<Ipv4Address, RoutingTableEntry>::iterator i = dstsWithNextHopSrc.begin (); i
@@ -743,17 +756,35 @@ RoutingProtocol::RecvDsdv (Ptr<Socket> socket)
                 }
               else
                 {
-                  if (not m_advRoutingTable.AnyRunningEvent (dsdvHeader.GetDst ()))
+                  if (not m_advRoutingTable.AnyRunningEvent (idrmHeader.GetDst ()))
                     {
-                      m_advRoutingTable.DeleteRoute (dsdvHeader.GetDst ());
+                      m_advRoutingTable.DeleteRoute (idrmHeader.GetDst ());
                     }
-                  NS_LOG_DEBUG (dsdvHeader.GetDst () <<
+                  NS_LOG_DEBUG (idrmHeader.GetDst () <<
                                 " : Discard this link break update as it was received from a different neighbor "
                                 "and I can reach the destination");
                 }
             }
         }
     }
+  for(;packetSize > 0; packetSize = packetSize -12)
+  {
+  	IdrmHeader nbHeader;
+	packet->RemoveHeader(nbHeader);
+	m_nc[nbHeader.GetDst()] = nbHeader.GetDstSeqno();
+  }
+  //std::cout<< "test2" <<endl;
+  //std::cout << "Neighbor Count for " << pnd  <<" with type of " << pnd->GetNType()<<endl;
+  pnd->couldBeGateway = true;
+  for(std::map<Ipv4Address, int>::const_iterator i = m_nc.begin (); i != m_nc.end (); ++i)
+  	{
+  	//std::cout << "Address: " << i->first << " Neighbor:  " << i->second <<endl;
+  	 if(i->second > m_nc[receiver] && i->first != receiver)
+  	 	{
+  	 	pnd->couldBeGateway = false;
+  	 	}
+  	}
+  //std::cout<< "test3 could be gw?: " << pnd->couldBeGateway <<endl;
   std::map<Ipv4Address, RoutingTableEntry> allRoutes;
   m_advRoutingTable.GetListOfAllRoutes (allRoutes);
   if (EnableRouteAggregation && allRoutes.size () > 0)
@@ -771,15 +802,23 @@ void
 RoutingProtocol::SendTriggeredUpdate ()
 {
   NS_LOG_FUNCTION (m_mainAddress << " is sending a triggered update");
+  int routeCount = 0;
   std::map<Ipv4Address, RoutingTableEntry> allRoutes;
   m_advRoutingTable.GetListOfAllRoutes (allRoutes);
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin (); j
        != m_socketAddresses.end (); ++j)
     {
-      DsdvHeader dsdvHeader;
+      IdrmHeader idrmHeader;
       Ptr<Socket> socket = j->first;
       Ipv4InterfaceAddress iface = j->second;
       Ptr<Packet> packet = Create<Packet> ();
+	  for(std::map<Ipv4Address, int>::const_iterator i = m_nc.begin (); i != m_nc.end (); ++i)
+	  {
+	  	idrmHeader.SetDst(i->first);
+		idrmHeader.SetDstSeqno((uint32_t)i->second);
+		idrmHeader.SetHopCount(0);
+		packet->AddHeader(idrmHeader);
+	  }
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator i = allRoutes.begin (); i != allRoutes.end (); ++i)
         {
           NS_LOG_LOGIC ("Destination: " << i->second.GetDestination ()
@@ -788,9 +827,9 @@ RoutingProtocol::SendTriggeredUpdate ()
           RoutingTableEntry temp = i->second;
           if ((i->second.GetEntriesChanged () == true) && (not m_advRoutingTable.AnyRunningEvent (temp.GetDestination ())))
             {
-              dsdvHeader.SetDst (i->second.GetDestination ());
-              dsdvHeader.SetDstSeqno (i->second.GetSeqNo ());
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
+              idrmHeader.SetDst (i->second.GetDestination ());
+              idrmHeader.SetDstSeqno (i->second.GetSeqNo ());
+              idrmHeader.SetHopCount (i->second.GetHop () + 1);
               temp.SetFlag (VALID);
               temp.SetEntriesChanged (false);
               m_advRoutingTable.DeleteIpv4Event (temp.GetDestination ());
@@ -798,7 +837,8 @@ RoutingProtocol::SendTriggeredUpdate ()
                 {
                   m_routingTable.Update (temp);
                 }
-              packet->AddHeader (dsdvHeader);
+              packet->AddHeader (idrmHeader);
+			  routeCount++;
               m_advRoutingTable.DeleteRoute (temp.GetDestination ());
               NS_LOG_DEBUG ("Deleted this route from the advertised table");
             }
@@ -814,11 +854,14 @@ RoutingProtocol::SendTriggeredUpdate ()
         {
           RoutingTableEntry temp2;
           m_routingTable.LookupRoute (m_ipv4->GetAddress (1, 0).GetBroadcast (), temp2);
-          dsdvHeader.SetDst (m_ipv4->GetAddress (1, 0).GetLocal ());
-          dsdvHeader.SetDstSeqno (temp2.GetSeqNo ());
-          dsdvHeader.SetHopCount (temp2.GetHop () + 1);
+          idrmHeader.SetDst (m_ipv4->GetAddress (1, 0).GetLocal ());
+          idrmHeader.SetDstSeqno (temp2.GetSeqNo ());
+          idrmHeader.SetHopCount (temp2.GetHop () + 1);
           NS_LOG_DEBUG ("Adding my update as well to the packet");
-          packet->AddHeader (dsdvHeader);
+          packet->AddHeader (idrmHeader);
+		  //routeCount++;
+		  idrmHeader.SetDstSeqno(uint32_t(routeCount));
+		  packet->AddHeader (idrmHeader);
           // Send to all-hosts broadcast if on /32 addr, subnet-directed otherwise
           Ipv4Address destination;
           if (iface.GetMask () == Ipv4Mask::GetOnes ())
@@ -829,9 +872,9 @@ RoutingProtocol::SendTriggeredUpdate ()
             {
               destination = iface.GetBroadcast ();
             }
-          socket->SendTo (packet, 0, InetSocketAddress (destination, DSDV_PORT));
+          socket->SendTo (packet, 0, InetSocketAddress (destination, IDRM_PORT));
           NS_LOG_FUNCTION ("Sent Triggered Update from "
-                           << dsdvHeader.GetDst ()
+                           << idrmHeader.GetDst ()
                            << " with packet id : " << packet->GetUid () << " and packet Size: " << packet->GetSize ());
         }
       else
@@ -859,45 +902,58 @@ RoutingProtocol::SendPeriodicUpdate ()
       Ptr<Socket> socket = j->first;
       Ipv4InterfaceAddress iface = j->second;
       Ptr<Packet> packet = Create<Packet> ();
+      IdrmHeader idrmHeader;
+	  int routeCount = 0;
+	  for(std::map<Ipv4Address, int>::const_iterator i = m_nc.begin (); i != m_nc.end (); ++i)
+	  {
+	  	idrmHeader.SetDst(i->first);
+		idrmHeader.SetDstSeqno((uint32_t)i->second);
+		idrmHeader.SetHopCount(0);
+		packet->AddHeader(idrmHeader);
+	  }
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator i = allRoutes.begin (); i != allRoutes.end (); ++i)
         {
-          DsdvHeader dsdvHeader;
           if (i->second.GetHop () == 0)
             {
               RoutingTableEntry ownEntry;
-              dsdvHeader.SetDst (m_ipv4->GetAddress (1,0).GetLocal ());
-              dsdvHeader.SetDstSeqno (i->second.GetSeqNo () + 2);
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
+              idrmHeader.SetDst (m_ipv4->GetAddress (1,0).GetLocal ());
+              idrmHeader.SetDstSeqno (i->second.GetSeqNo () + 2);
+              idrmHeader.SetHopCount (i->second.GetHop () + 1);
               m_routingTable.LookupRoute (m_ipv4->GetAddress (1,0).GetBroadcast (),ownEntry);
-              ownEntry.SetSeqNo (dsdvHeader.GetDstSeqno ());
+              ownEntry.SetSeqNo (idrmHeader.GetDstSeqno ());
               m_routingTable.Update (ownEntry);
-              packet->AddHeader (dsdvHeader);
+              packet->AddHeader (idrmHeader);
+			  routeCount++;
             }
           else
             {
-              dsdvHeader.SetDst (i->second.GetDestination ());
-              dsdvHeader.SetDstSeqno ((i->second.GetSeqNo ()));
-              dsdvHeader.SetHopCount (i->second.GetHop () + 1);
-              packet->AddHeader (dsdvHeader);
+              idrmHeader.SetDst (i->second.GetDestination ());
+              idrmHeader.SetDstSeqno ((i->second.GetSeqNo ()));
+              idrmHeader.SetHopCount (i->second.GetHop () + 1);
+              packet->AddHeader (idrmHeader);
+			  routeCount++;
             }
           NS_LOG_DEBUG ("Forwarding the update for " << i->first);
-          NS_LOG_DEBUG ("Forwarding details are, Destination: " << dsdvHeader.GetDst ()
-                                                                << ", SeqNo:" << dsdvHeader.GetDstSeqno ()
-                                                                << ", HopCount:" << dsdvHeader.GetHopCount ()
+          NS_LOG_DEBUG ("Forwarding details are, Destination: " << idrmHeader.GetDst ()
+                                                                << ", SeqNo:" << idrmHeader.GetDstSeqno ()
+                                                                << ", HopCount:" << idrmHeader.GetHopCount ()
                                                                 << ", LifeTime: " << i->second.GetLifeTime ().GetSeconds ());
         }
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator rmItr = removedAddresses.begin (); rmItr
            != removedAddresses.end (); ++rmItr)
         {
-          DsdvHeader removedHeader;
+          IdrmHeader removedHeader;
           removedHeader.SetDst (rmItr->second.GetDestination ());
           removedHeader.SetDstSeqno (rmItr->second.GetSeqNo () + 1);
           removedHeader.SetHopCount (rmItr->second.GetHop () + 1);
           packet->AddHeader (removedHeader);
+		  routeCount++;
           NS_LOG_DEBUG ("Update for removed record is: Destination: " << removedHeader.GetDst ()
                                                                       << " SeqNo:" << removedHeader.GetDstSeqno ()
                                                                       << " HopCount:" << removedHeader.GetHopCount ());
         }
+	  idrmHeader.SetDstSeqno(uint32_t(routeCount));
+	  packet->AddHeader (idrmHeader);
       socket->Send (packet);
       // Send to all-hosts broadcast if on /32 addr, subnet-directed otherwise
       Ipv4Address destination;
@@ -909,7 +965,7 @@ RoutingProtocol::SendPeriodicUpdate ()
         {
           destination = iface.GetBroadcast ();
         }
-      socket->SendTo (packet, 0, InetSocketAddress (destination, DSDV_PORT));
+      socket->SendTo (packet, 0, InetSocketAddress (destination, IDRM_PORT));
       NS_LOG_FUNCTION ("PeriodicUpdate Packet UID is : " << packet->GetUid ());
     }
   m_periodicUpdateTimer.Schedule (m_periodicUpdateInterval + MicroSeconds (25 * m_uniformRandomVariable->GetInteger (0,1000)));
@@ -954,9 +1010,9 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   // Create a socket to listen only on this interface
   Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
   NS_ASSERT (socket != 0);
-  socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+  socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvIdrm,this));
   socket->BindToNetDevice (l3->GetNetDevice (i));
-  socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+  socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), IDRM_PORT));
   socket->SetAllowBroadcast (true);
   socket->SetAttribute ("IpTtl",UintegerValue (1));
   m_socketAddresses.insert (std::make_pair (socket,iface));
@@ -983,7 +1039,7 @@ RoutingProtocol::NotifyInterfaceDown (uint32_t i)
   m_socketAddresses.erase (socket);
   if (m_socketAddresses.empty ())
     {
-      NS_LOG_LOGIC ("No dsdv interfaces");
+      NS_LOG_LOGIC ("No idrm interfaces");
       m_routingTable.Clear ();
       return;
     }
@@ -1011,10 +1067,10 @@ RoutingProtocol::NotifyAddAddress (uint32_t i,
         }
       Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
       NS_ASSERT (socket != 0);
-      socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+      socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvIdrm,this));
       socket->BindToNetDevice (l3->GetNetDevice (i));
       // Bind to any IP address so that broadcasts can be received
-      socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+      socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), IDRM_PORT));
       socket->SetAllowBroadcast (true);
       m_socketAddresses.insert (std::make_pair (socket,iface));
       Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (iface.GetLocal ()));
@@ -1039,9 +1095,9 @@ RoutingProtocol::NotifyRemoveAddress (uint32_t i,
           // Create a socket to listen only on this interface
           Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),UdpSocketFactory::GetTypeId ());
           NS_ASSERT (socket != 0);
-          socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvDsdv,this));
+          socket->SetRecvCallback (MakeCallback (&RoutingProtocol::RecvIdrm,this));
           // Bind to any IP address so that broadcasts can be received
-          socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), DSDV_PORT));
+          socket->Bind (InetSocketAddress (Ipv4Address::GetAny (), IDRM_PORT));
           socket->SetAllowBroadcast (true);
           m_socketAddresses.insert (std::make_pair (socket,iface));
         }
@@ -1208,67 +1264,68 @@ RoutingProtocol::MergeTriggerPeriodicUpdates ()
     }
 }
 iMRoutingTable
-    RoutingProtocol::GetRoutingTable()
+	RoutingProtocol::GetRoutingTable()
 {
-    iMRoutingTable temp;
-    //m_routingTable.Purge ();
-    std::map<Ipv4Address, RoutingTableEntry> ets=m_routingTable.GetEntries();
-    //int iter_count = 1;
+	iMRoutingTable temp;
+	//m_routingTable.Purge ();
+	std::map<Ipv4Address, RoutingTableEntry> ets=m_routingTable.GetEntries();
+	//int iter_count = 1;
     for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator iter =
          ets.begin (); iter != ets.end (); iter++)
     {
       //std::cout<<"This is "<<iter_count<<" in "<<ets.size()<<"\n";
       //std::cout<<"start run getT in aodv\n";
       iMRoutingTableEntry &entry=temp[iter->first];
-      //std::cout<<"2step run getT in aodv\n";
+	  //std::cout<<"2step run getT in aodv\n";
       entry.destAddr=iter->second.GetDestination ();
-      //std::cout<< entry.destAddr <<"\n";
-      //std::cout<<"3step run getT in aodv\n";
+	  //std::cout<< entry.destAddr <<"\n";
+	  //std::cout<<"3step run getT in aodv\n";
       entry.nextAddr=iter->second.GetNextHop ();
-      //std::cout<< entry.nextAddr <<"\n";
-      //std::cout<<"4step run getT in aodv\n";
-      if(iter->second.GetHop () > 0){
-	  entry.distance=iter->second.GetHop ();}
-	  else
-	  {entry.distance=99999;}
-      //std::cout<< entry.distance <<"\n";
-      //std::cout<<"5step run getT in aodv\n";
+	  //std::cout<< entry.nextAddr <<"\n";
+	  //std::cout<<"4step run getT in aodv\n";
+	  if(iter->second.GetHop ()>0)
+      entry.distance=iter->second.GetHop ();
+      else
+      entry.distance=99999;
+	  //std::cout<< entry.distance <<"\n";
+	  //std::cout<<"5step run getT in aodv\n";
       entry.interface=iter->second.GetInterface ();
-      //std::cout<< entry.interface <<"\n";
-      //std::cout<<"6step run getT in aodv\n";
-      //std::cout<< iter->second.GetOutputDevice ()<<"\n";
+	  //std::cout<< entry.interface <<"\n";
+	  //std::cout<<"6step run getT in aodv\n";
+	  //std::cout<< iter->second.GetOutputDevice ()<<"\n";
       entry.dev=iter->second.GetOutputDevice ();
-      //std::cout<<"8step run getT in aodv\n";
+	  //std::cout<<"8step run getT in aodv\n";
       entry.m_seqNo=iter->second.GetSeqNo ();
-      //std::cout<<"9step run getT in aodv\n";
+	  //std::cout<<"9step run getT in aodv\n";
       entry.lifetime=iter->second.GetLifeTime ();
-      //std::cout<<"end run getT in aodv\n";
-      entry.m_flag=iter->second.GetFlag();
-      //iter_count++;
+	  //std::cout<<"end run getT in aodv\n";
+	  entry.m_flag=iter->second.GetFlag();
+	  //iter_count++;
     }
-    return temp;
+	return temp;
 
 }
 
 void
-    RoutingProtocol::SetRoutingTable(iMRoutingTable iMtable)
+	RoutingProtocol::SetRoutingTable(iMRoutingTable iMtable)
 {
     std::map<Ipv4Address, RoutingTableEntry> ets=m_routingTable.GetEntries();
     for (std::map<Ipv4Address, iMRoutingTableEntry>::const_iterator iter = iMtable.begin (); iter != iMtable.end (); iter++)
     {
-     
+      
       if(ets.find(iter->first)==ets.end())
       {
           //std::cout<<"enter if!!!!!!!!!!!!!!!!!\n";
           RoutingTableEntry rt (iter->second.dev, iter->second.destAddr, iter->second.m_seqNo, iter->second.interface, iter->second.distance, iter->second.nextAddr, iter->second.lifetime);
-          if(iter->second.m_flag == 0)
+		  if(iter->second.m_flag == 0)
           {rt.SetFlag(VALID);}
-          else if(iter->second.m_flag == 1)
-          {rt.SetFlag(INVALID);}
-         
-          m_routingTable.AddRoute (rt);   
+		  else if(iter->second.m_flag == 1)
+		  {rt.SetFlag(INVALID);}
+		  
+		  m_routingTable.AddRoute (rt);    
       }
-    } 
+    }  
 }
+
 }
 }

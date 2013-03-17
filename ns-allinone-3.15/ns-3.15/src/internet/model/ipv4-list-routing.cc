@@ -439,10 +439,15 @@ void
 Ipv4ListRouting::Split()
 {
    Ptr<Node> pnd=m_ipv4->GetObject<Node>();
-   if(CheckIsolation())
+   if(CheckIsolation() && pnd->couldBeGateway == true)
    	{pnd->SetNType(2);}
 }
 
+int
+Ipv4ListRouting::Count_Neighbour()
+{
+	return m_table.size();
+}
 
 } // namespace ns3
 

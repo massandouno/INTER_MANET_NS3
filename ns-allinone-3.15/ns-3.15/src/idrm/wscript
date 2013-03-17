@@ -1,0 +1,33 @@
+## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+def build(bld):
+    module = bld.create_ns3_module('idrm', ['internet', 'wifi', 'mesh', 'applications'])
+    module.includes = '.'
+    module.source = [
+        'model/idrm-rtable.cc',
+        'model/idrm-packet-queue.cc',
+        'model/idrm-packet.cc',
+        'model/idrm-routing-protocol.cc',
+        'helper/idrm-helper.cc',
+        'model/im-neighbor.cc',
+        ]
+
+    module_test = bld.create_ns3_module_test_library('idrm')
+    module_test.source = [
+        'test/idrm-testcase.cc',
+        ]
+
+    headers = bld.new_task_gen(features=['ns3header'])
+    headers.module = 'idrm'
+    headers.source = [
+        'model/idrm-rtable.h',
+        'model/idrm-packet-queue.h',
+        'model/idrm-packet.h',
+        'model/idrm-routing-protocol.h',
+        'helper/idrm-helper.h',
+        'model/im-neighbor.h',
+        ]
+    if (bld.env['ENABLE_EXAMPLES']):
+      bld.add_subdirs('examples')
+
+    bld.ns3_python_bindings()

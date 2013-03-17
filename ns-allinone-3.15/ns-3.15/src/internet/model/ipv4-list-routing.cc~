@@ -406,10 +406,10 @@ bool Ipv4ListRouting::CheckIsolation()
 void 
 Ipv4ListRouting::Refresh_iMTable()
 {
-    iMMergeRoutingTable();
-	iMSetRoutingTable();
-	CheckIsolation();
-	m_refresh_imTable.Schedule (Seconds (0.01));
+    //iMMergeRoutingTable();
+	//iMSetRoutingTable();
+	//CheckIsolation();
+	//m_refresh_imTable.Schedule (Seconds (0.01));
 }
 
 

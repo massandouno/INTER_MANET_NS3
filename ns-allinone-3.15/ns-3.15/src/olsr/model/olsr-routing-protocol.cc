@@ -370,7 +370,7 @@ RoutingProtocol::RecvOlsr (Ptr<Socket> socket)
   NS_ASSERT (receiverIfaceAddr != Ipv4Address ());
   NS_LOG_DEBUG ("OLSR node " << m_mainAddress << " received a OLSR packet from "
                              << senderIfaceAddr << " to " << receiverIfaceAddr);
-                             
+                             /*
 	//TODO:
 	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
 	//std::cout<<pnd->GetId()<<": "<<pnd->GetNType()<<"\n";
@@ -384,18 +384,8 @@ RoutingProtocol::RecvOlsr (Ptr<Socket> socket)
 			return;
 		}
 	}
-
-	if(pnd->GetNType()==2)
-	{
-		Ipv4Mask msk("255.255.255.0");
-		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),senderIfaceAddr)&&!msk.IsMatch(m_ipv4->GetAddress(2,0).GetLocal(),senderIfaceAddr))
-		{
-			return;
-		}
-	}
-	
 	//DONE
-
+*/
   // All routing messages are sent from and to port RT_PORT,
   // so we check it.
   NS_ASSERT (inetSourceAddr.GetPort () == OLSR_PORT_NUMBER);

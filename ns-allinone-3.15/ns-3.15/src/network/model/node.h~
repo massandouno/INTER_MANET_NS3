@@ -197,8 +197,6 @@ public:
   void SetNType(int nType) {m_nType=nType;}
 
   int GetNType() {return m_nType;}
-  
-  bool couldBeGateway;
 
 
 protected:
