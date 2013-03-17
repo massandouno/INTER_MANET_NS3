@@ -606,5 +606,16 @@ Ipv4GlobalRouting::SetIpv4 (Ptr<Ipv4> ipv4)
   m_ipv4 = ipv4;
 }
 
+iMRoutingTable
+	Ipv4GlobalRouting::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+
+void
+	Ipv4GlobalRouting::SetRoutingTable(iMRoutingTable iMtable)
+{}
 
 } // namespace ns3

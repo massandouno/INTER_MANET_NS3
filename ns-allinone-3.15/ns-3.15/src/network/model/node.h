@@ -194,6 +194,10 @@ public:
    */
   static bool ChecksumEnabled (void);
 
+  void SetNType(int nType) {m_nType=nType;}
+
+  int GetNType() {return m_nType;}
+
 
 protected:
   /**
@@ -224,6 +228,7 @@ private:
 
   uint32_t    m_id;         // Node id for this node
   uint32_t    m_sid;        // System id for this node
+  int m_nType;
   std::vector<Ptr<NetDevice> > m_devices;
   std::vector<Ptr<Application> > m_applications;
   ProtocolHandlerList m_handlers;

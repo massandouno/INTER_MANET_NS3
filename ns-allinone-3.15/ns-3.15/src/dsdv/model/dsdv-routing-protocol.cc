@@ -1207,5 +1207,15 @@ RoutingProtocol::MergeTriggerPeriodicUpdates ()
         }
     }
 }
+iMRoutingTable
+	RoutingProtocol::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+void
+	RoutingProtocol::SetRoutingTable(iMRoutingTable iMtable)
+{}
 }
 }

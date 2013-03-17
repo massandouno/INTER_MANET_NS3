@@ -73,6 +73,10 @@ public:
    */
   void FlushGlobalNixRoutingCache (void);
 
+  iMRoutingTable GetRoutingTable();
+
+  void SetRoutingTable(iMRoutingTable iMtable);
+
 private:
   /* flushes the cache which stores nix-vector based on
    * destination IP */

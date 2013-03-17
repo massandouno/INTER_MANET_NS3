@@ -250,7 +250,7 @@ void
 RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const
 {
   std::ostream* os = stream->GetStream ();
-  *os << "Destination\t\tNextHop\t\tInterface\tDistance\n";
+  *os << "Destination\t\tNextHop\t\tInterface\tDistance\tNode "<< m_ipv4->GetObject<Node> ()->GetId () <<"\n";
 
   for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator iter = m_table.begin ();
        iter != m_table.end (); iter++)
@@ -370,6 +370,31 @@ RoutingProtocol::RecvOlsr (Ptr<Socket> socket)
   NS_ASSERT (receiverIfaceAddr != Ipv4Address ());
   NS_LOG_DEBUG ("OLSR node " << m_mainAddress << " received a OLSR packet from "
                              << senderIfaceAddr << " to " << receiverIfaceAddr);
+                             
+	//TODO:
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	//std::cout<<pnd->GetId()<<": "<<pnd->GetNType()<<"\n";
+	
+	if(pnd->GetNType()==0 || pnd->GetNType()==1)
+	{
+		Ipv4Mask msk("255.255.255.0");
+			//std::cout<<m_ipv4->GetAddress(1,0).GetLocal()<<"<-"<<senderIfaceAddr<<"\n";
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),senderIfaceAddr))
+		{
+			return;
+		}
+	}
+
+	if(pnd->GetNType()==2)
+	{
+		Ipv4Mask msk("255.255.255.0");
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),senderIfaceAddr)&&!msk.IsMatch(m_ipv4->GetAddress(2,0).GetLocal(),senderIfaceAddr))
+		{
+			return;
+		}
+	}
+	
+	//DONE
 
   // All routing messages are sent from and to port RT_PORT,
   // so we check it.
@@ -3230,6 +3255,47 @@ RoutingProtocol::NotifyAddAddress (uint32_t interface, Ipv4InterfaceAddress addr
 void 
 RoutingProtocol::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address)
 {}
+iMRoutingTable
+	RoutingProtocol::GetRoutingTable()
+{
+    //std::cout<<"run getT in olsr\n";
+	iMRoutingTable temp;
+	
+    for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator iter = m_table.begin (); iter != m_table.end (); iter++)
+    {
+	  iMRoutingTableEntry &entry=temp[iter->first];
+      entry.destAddr=iter->second.destAddr;
+      entry.nextAddr=iter->second.nextAddr;
+      entry.distance=iter->second.distance;
+	  entry.lifetime=Seconds(3.0);
+	  entry.m_flag=0;
+      entry.interface=m_ipv4->GetAddress (iter->second.interface,0);
+    }
+  
+	return temp;
+}
+void
+	RoutingProtocol::SetRoutingTable(iMRoutingTable iMtable)
+{
+    for (std::map<Ipv4Address, iMRoutingTableEntry>::const_iterator iter = iMtable.begin (); iter != iMtable.end (); iter++)
+    {
+      if(m_table.find(iter->first)==m_table.end())
+      {
+        for (uint32_t i = 0; i < m_ipv4->GetNInterfaces (); i++)
+        {
+            for (uint32_t j = 0; j < m_ipv4->GetNAddresses (i); j++)
+            {
+                if (m_ipv4->GetAddress (i,j) == iter->second.interface)
+                {
+                    AddEntry (iter->second.destAddr, iter->second.nextAddr, i, iter->second.distance);
+                    return;
+                }
+            }
+        }
+        
+      }
+    }
+}
 
 
 ///

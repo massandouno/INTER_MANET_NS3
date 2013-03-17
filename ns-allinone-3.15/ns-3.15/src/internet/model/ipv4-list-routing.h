@@ -22,6 +22,14 @@
 #include <list>
 #include "ns3/ipv4-routing-protocol.h"
 #include "ns3/simulator.h"
+#include "ns3/timer.h"
+#include "ns3/ipv4.h"
+#include "ns3/random-variable-stream.h"
+
+#include <vector>
+#include <map>
+
+
 
 namespace ns3 {
 
@@ -29,6 +37,7 @@ namespace ns3 {
  * \ingroup internet 
  * \defgroup ipv4ListRouting Ipv4 List Routing
  */
+ 
 /**
  * \ingroup ipv4ListRouting
  *
@@ -87,6 +96,30 @@ public:
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const;
+  iMRoutingTable GetRoutingTable();
+
+  void SetRoutingTable(iMRoutingTable iMtable);
+
+  iMRoutingTable m_table;
+  //iMRoutingTableEntry testEntry;
+
+  void iMMergeRoutingTable();
+
+  void iMSetRoutingTable();
+
+  bool CheckIsolation();
+
+  Timer m_refresh_imTable;
+
+  Timer m_isolation_check;
+
+  void Refresh_iMTable();
+
+  void Check_Isolation();
+
+  void Split();
+
+  //bool CompareRoutingEntryEvery(iMRoutingTable compare_table,iMRoutingTableEntry compare_entry);
 
 protected:
   void DoDispose (void);
@@ -99,7 +132,6 @@ private:
   Ptr<Ipv4> m_ipv4;
 
 };
-
 } // namespace ns3
 
 #endif /* IPV4_LIST_ROUTING_H */

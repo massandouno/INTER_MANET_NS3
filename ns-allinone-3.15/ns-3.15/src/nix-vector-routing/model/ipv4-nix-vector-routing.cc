@@ -872,4 +872,19 @@ Ipv4NixVectorRouting::BFS (uint32_t numberOfNodes, Ptr<Node> source,
   return false;
 }
 
+iMRoutingTable
+Ipv4NixVectorRouting::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+
+void
+Ipv4NixVectorRouting::SetRoutingTable(iMRoutingTable iMtable)
+{
+}
+
+
+
 } // namespace ns3

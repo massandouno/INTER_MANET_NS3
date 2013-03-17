@@ -41,6 +41,7 @@
 #include "ns3/pointer.h"
 #include <algorithm>
 #include <limits>
+#include <iostream>
 
 NS_LOG_COMPONENT_DEFINE ("AodvRoutingProtocol");
 
@@ -555,6 +556,7 @@ RoutingProtocol::Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
           m_nb.Update (toOrigin.GetNextHop (), ActiveRouteTimeout);
 
           ucb (route, p, header);
+		  std::cout << "forwarding a packet at " << route->GetOutputDevice()<<"\n";
           return true;
         }
       else
@@ -624,6 +626,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   socket->SetAllowBroadcast (true);
   socket->SetAttribute ("IpTtl", UintegerValue (1));
   m_socketAddresses.insert (std::make_pair (socket, iface));
+  std::cout << "Bind socket " << socket << " to the interface " << iface << "\n";
 
   // Add local broadcast record to the routing table
   Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (iface.GetLocal ()));
@@ -946,7 +949,11 @@ RoutingProtocol::RecvAodv (Ptr<Socket> socket)
   Ipv4Address sender = inetSourceAddr.GetIpv4 ();
   Ipv4Address receiver = m_socketAddresses[socket].GetLocal ();
   NS_LOG_DEBUG ("AODV node " << this << " received a AODV packet from " << sender << " to " << receiver);
-
+// Print out routing refreash
+  if(m_ipv4->GetObject<Node>()->GetId () == 0)
+  {
+  //std::cout<<"AODV node " << m_ipv4->GetObject<Node>()->GetId ()<< " received a AODV packet from " << sender << " to " << receiver << "\n";
+  	}
   UpdateRouteToNeighbor (sender, receiver);
   TypeHeader tHeader (AODVTYPE_RREQ);
   packet->RemoveHeader (tHeader);
@@ -1010,7 +1017,8 @@ RoutingProtocol::UpdateRouteToNeighbor (Ipv4Address sender, Ipv4Address receiver
       RoutingTableEntry newEntry (/*device=*/ dev, /*dst=*/ sender, /*know seqno=*/ false, /*seqno=*/ 0,
                                               /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0),
                                               /*hops=*/ 1, /*next hop=*/ sender, /*lifetime=*/ ActiveRouteTimeout);
-      m_routingTable.AddRoute (newEntry);
+	  //std::cout<< "The Sender: " <<sender<< "; The Receiver: " << receiver << "\n";
+	  m_routingTable.AddRoute (newEntry);
     }
   else
     {
@@ -1024,7 +1032,8 @@ RoutingProtocol::UpdateRouteToNeighbor (Ipv4Address sender, Ipv4Address receiver
           RoutingTableEntry newEntry (/*device=*/ dev, /*dst=*/ sender, /*know seqno=*/ false, /*seqno=*/ 0,
                                                   /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0),
                                                   /*hops=*/ 1, /*next hop=*/ sender, /*lifetime=*/ std::max (ActiveRouteTimeout, toNeighbor.GetLifeTime ()));
-          m_routingTable.Update (newEntry);
+		  //std::cout<< "The Sender: " <<sender.Get()<< "; The Receiver: " << receiver.Get() << "\n";
+		  m_routingTable.Update (newEntry);
         }
     }
 
@@ -1083,6 +1092,14 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
                                               /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0), /*hops=*/ hop,
                                               /*nextHop*/ src, /*timeLife=*/ Time ((2 * NetTraversalTime - 2 * hop * NodeTraversalTime)));
       m_routingTable.AddRoute (newEntry);
+	  //our code
+	  /*
+	  Ptr<OutputStreamWrapper> aodvTrcaker = Create<OutputStreamWrapper> ("aodvTracker.routes",std::ios::out);
+	  std::ostream* os = aodvTrcaker->GetStream ();
+	  *os << "New Entry Add to Table \n";
+	  newEntry.Print(aodvTrcaker);
+	  *os << "\n";
+	  */
     }
   else
     {
@@ -1605,7 +1622,7 @@ RoutingProtocol::SendHello ()
 void
 RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
 {
-  NS_LOG_FUNCTION (this);
+  NS_LOG_FUNCTION (this << dst << route);
   QueueEntry queueEntry;
   while (m_queue.Dequeue (dst, queueEntry))
     {
@@ -1809,6 +1826,71 @@ RoutingProtocol::FindSocketWithInterfaceAddress (Ipv4InterfaceAddress addr ) con
     }
   Ptr<Socket> socket;
   return socket;
+}
+
+iMRoutingTable
+	RoutingProtocol::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	//m_routingTable.Purge ();
+	std::map<Ipv4Address, RoutingTableEntry> ets=m_routingTable.GetEntries();
+	//int iter_count = 1;
+    for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator iter =
+         ets.begin (); iter != ets.end (); iter++)
+    {
+      //std::cout<<"This is "<<iter_count<<" in "<<ets.size()<<"\n";
+      //std::cout<<"start run getT in aodv\n";
+      iMRoutingTableEntry &entry=temp[iter->first];
+	  //std::cout<<"2step run getT in aodv\n";
+      entry.destAddr=iter->second.GetDestination ();
+	  //std::cout<< entry.destAddr <<"\n";
+	  //std::cout<<"3step run getT in aodv\n";
+      entry.nextAddr=iter->second.GetNextHop ();
+	  //std::cout<< entry.nextAddr <<"\n";
+	  //std::cout<<"4step run getT in aodv\n";
+      entry.distance=iter->second.GetHop ();
+	  //std::cout<< entry.distance <<"\n";
+	  //std::cout<<"5step run getT in aodv\n";
+      entry.interface=iter->second.GetInterface ();
+	  //std::cout<< entry.interface <<"\n";
+	  //std::cout<<"6step run getT in aodv\n";
+	  //std::cout<< iter->second.GetOutputDevice ()<<"\n";
+      entry.dev=iter->second.GetOutputDevice ();
+	  //std::cout<<"7step run getT in aodv\n";
+      entry.vSeqNo=iter->second.GetValidSeqNo ();
+	  //std::cout<<"8step run getT in aodv\n";
+      entry.m_seqNo=iter->second.GetSeqNo ();
+	  //std::cout<<"9step run getT in aodv\n";
+      entry.lifetime=iter->second.GetLifeTime ();
+	  //std::cout<<"end run getT in aodv\n";
+	  entry.m_flag=iter->second.GetFlag();
+	  //iter_count++;
+    }
+	return temp;
+
+}
+
+void
+	RoutingProtocol::SetRoutingTable(iMRoutingTable iMtable)
+{
+    std::map<Ipv4Address, RoutingTableEntry> ets=m_routingTable.GetEntries();
+    for (std::map<Ipv4Address, iMRoutingTableEntry>::const_iterator iter = iMtable.begin (); iter != iMtable.end (); iter++)
+    {
+      
+      if(ets.find(iter->first)==ets.end())
+      {
+          std::cout<<"enter if!!!!!!!!!!!!!!!!!\n";
+          RoutingTableEntry rt (iter->second.dev, iter->second.destAddr, iter->second.vSeqNo, iter->second.m_seqNo, iter->second.interface, iter->second.distance, iter->second.nextAddr, iter->second.lifetime);
+		  if(iter->second.m_flag == 0)
+          {rt.SetFlag(VALID);}
+		  else if(iter->second.m_flag == 1)
+		  {rt.SetFlag(INVALID);}
+		  else
+		  {rt.SetFlag(IN_SEARCH);}
+		  
+		  m_routingTable.AddRoute (rt);    
+      }
+    }  
 }
 
 }

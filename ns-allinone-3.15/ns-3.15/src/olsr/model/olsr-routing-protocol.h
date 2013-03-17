@@ -98,6 +98,10 @@ public:
   ///
   void Dump (void);
 
+  
+  virtual iMRoutingTable GetRoutingTable();
+  virtual void SetRoutingTable(iMRoutingTable iMtable);
+
   /**
    * Return the list of routing table entries discovered by OLSR
    **/

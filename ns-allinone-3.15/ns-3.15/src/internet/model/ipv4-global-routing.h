@@ -93,6 +93,9 @@ public:
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const;
+  iMRoutingTable GetRoutingTable();
+
+  void SetRoutingTable(iMRoutingTable iMtable);
 
 /**
  * \brief Add a host route to the global routing table.

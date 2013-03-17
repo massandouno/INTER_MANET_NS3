@@ -42,7 +42,9 @@ Ipv4ListRouting::GetTypeId (void)
 
 
 Ipv4ListRouting::Ipv4ListRouting () 
-  : m_ipv4 (0)
+  : m_refresh_imTable (Timer::CANCEL_ON_DESTROY),
+    m_isolation_check (Timer::CANCEL_ON_DESTROY),
+    m_ipv4 (0)
 {
   NS_LOG_FUNCTION_NOARGS ();
 }
@@ -99,6 +101,18 @@ Ipv4ListRouting::DoStart (void)
 Ptr<Ipv4Route>
 Ipv4ListRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, enum Socket::SocketErrno &sockerr)
 {
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	//std::cout<<pnd->GetId()<<": "<<pnd->GetNType()<<"\n";
+	/*
+	if(pnd->GetNType()==0 || pnd->GetNType()==1)
+	{
+		Ipv4Mask msk("255.255.255.0");
+			//std::cout<<m_ipv4->GetAddress(1,0).GetLocal()<<"<-"<<header.GetSource()<<"\n";
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),header.GetSource()))
+		{
+			return 0;
+		}
+	}*/
   NS_LOG_FUNCTION (this << header.GetDestination () << " " << header.GetSource () << " " << oif);
   Ptr<Ipv4Route> route;
 
@@ -127,6 +141,18 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
                              UnicastForwardCallback ucb, MulticastForwardCallback mcb, 
                              LocalDeliverCallback lcb, ErrorCallback ecb)
 {
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	//std::cout<<pnd->GetId()<<": "<<pnd->GetNType()<<"\n";
+	/*
+	if(pnd->GetNType()==0 || pnd->GetNType()==1)
+	{
+		Ipv4Mask msk("255.255.255.0");
+			//std::cout<<m_ipv4->GetAddress(1,0).GetLocal()<<"<-"<<header.GetSource()<<"\n";
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),header.GetSource()))
+		{
+			return 0;
+		}
+	}*/
   bool retVal = false;
   NS_LOG_FUNCTION (p << header << idev);
   NS_LOG_LOGIC ("RouteInput logic for node: " << m_ipv4->GetObject<Node> ()->GetId ());
@@ -236,6 +262,8 @@ Ipv4ListRouting::SetIpv4 (Ptr<Ipv4> ipv4)
 {
   NS_LOG_FUNCTION (this << ipv4);
   NS_ASSERT (m_ipv4 == 0);
+  m_refresh_imTable.SetFunction (&Ipv4ListRouting::Refresh_iMTable, this);
+  m_isolation_check.SetFunction (&Ipv4ListRouting::Check_Isolation, this);
   for (Ipv4RoutingProtocolList::const_iterator rprotoIter =
          m_routingProtocols.begin ();
        rprotoIter != m_routingProtocols.end ();
@@ -244,6 +272,8 @@ Ipv4ListRouting::SetIpv4 (Ptr<Ipv4> ipv4)
       (*rprotoIter).second->SetIpv4 (ipv4);
     }
   m_ipv4 = ipv4;
+  Refresh_iMTable();
+  Check_Isolation();
 }
 
 void
@@ -290,6 +320,127 @@ bool
 Ipv4ListRouting::Compare (const Ipv4RoutingProtocolEntry& a, const Ipv4RoutingProtocolEntry& b)
 {
   return a.first > b.first;
+}
+
+void
+Ipv4ListRouting::iMMergeRoutingTable()
+{
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	if(pnd->GetNType()==2){
+	for (Ipv4RoutingProtocolList::const_iterator i = m_routingProtocols.begin ();
+       i != m_routingProtocols.end (); i++)
+    {
+       //std::cout << "test sgf\n";
+       iMRoutingTable tempTable((*i).second->GetRoutingTable());
+	   
+	  
+	  //Merge the temp table with m_table
+	  for(iMRoutingTable::const_iterator iter = tempTable.begin ();
+	  iter != tempTable.end (); iter++)
+	  {
+	      bool inTable = false;
+	  	  //compare every entry in tempTable with m_table
+	  	  for(iMRoutingTable::const_iterator iter2 = m_table.begin ();
+	      iter2 != m_table.end (); iter2++)
+	      {
+	          if(iter->first == iter2->first)
+	          {inTable = true;}
+	      }
+	  	  //insert entry which was not in m_table
+		  if(!inTable)
+		  {
+		  	  iMRoutingTableEntry &entry = m_table[iter->first];
+			  entry.destAddr = iter->second.destAddr;
+			  entry.nextAddr= iter->second.nextAddr;
+			  entry.interface= iter->second.interface;
+			  entry.distance= iter->second.distance;
+			  entry.lifetime= iter->second.lifetime;
+			  entry.vSeqNo= iter->second.vSeqNo;
+			  entry.m_seqNo= iter->second.m_seqNo;
+			  entry.dev= iter->second.dev;
+			  entry.m_flag = iter->second.m_flag;
+		  }
+	  }
+	  
+    }
+	}
+}
+
+void
+Ipv4ListRouting::iMSetRoutingTable()
+{
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	if(pnd->GetNType()==2){
+	for (Ipv4RoutingProtocolList::const_iterator i = m_routingProtocols.begin ();
+       i != m_routingProtocols.end (); i++)
+    {
+    	(*i).second->SetRoutingTable(m_table);
+    }
+	}
+}
+
+iMRoutingTable
+Ipv4ListRouting::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+
+void
+Ipv4ListRouting::SetRoutingTable(iMRoutingTable iMtable)
+{
+}
+
+bool Ipv4ListRouting::CheckIsolation()
+{
+	Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+	if(pnd->GetNType()==1)
+	{
+		Ipv4Mask msk("255.255.255.0");
+		for(iMRoutingTable::const_iterator iter = m_table.begin (); iter != m_table.end (); iter++)
+	    {
+			if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),iter->first))
+			{
+				return false;
+			}
+	    }
+		//pnd->SetNType(2);
+		return true;
+	}
+	return 0;
+}
+
+
+void 
+Ipv4ListRouting::Refresh_iMTable()
+{
+    iMMergeRoutingTable();
+	iMSetRoutingTable();
+	//CheckIsolation();
+	m_refresh_imTable.Schedule (Seconds (0.01));
+}
+
+void 
+Ipv4ListRouting::Check_Isolation()
+{
+	if(CheckIsolation())
+	{
+	    Ptr<UniformRandomVariable> m_backoffcount;
+		m_backoffcount = CreateObject<UniformRandomVariable>();
+	    uint32_t backoffcount = (uint32_t)m_backoffcount->GetValue(0.1,0.5);
+	    Time backoff = Time(backoffcount * 5);
+	    Simulator::Schedule(backoff,&Ipv4ListRouting::Split,this);
+	}
+	m_isolation_check.Schedule (Seconds (1));
+}
+
+void 
+Ipv4ListRouting::Split()
+{
+   Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+   if(CheckIsolation())
+   	{pnd->SetNType(2);}
 }
 
 

@@ -490,7 +490,10 @@ Ipv4L3Protocol::Receive ( Ptr<NetDevice> device, Ptr<const Packet> p, uint16_t p
     {
       NS_LOG_LOGIC ("Forwarding to raw socket"); 
       Ptr<Ipv4RawSocketImpl> socket = *i;
+	  //std::cout << "1234567\n";
+	  //if(ipv4Interface->GetDevice () == socket->GetBoundNetDevice()){
       socket->ForwardUp (packet, ipHeader, ipv4Interface);
+	  //}
     }
 
   NS_ASSERT_MSG (m_routingProtocol != 0, "Need a routing protocol object to process packets");

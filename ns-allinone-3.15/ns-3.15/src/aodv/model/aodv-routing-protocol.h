@@ -73,6 +73,8 @@ public:
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const;
+  virtual iMRoutingTable GetRoutingTable();
+  virtual void SetRoutingTable(iMRoutingTable iMtable);
   //\}
 
   ///\name Handle protocol parameters

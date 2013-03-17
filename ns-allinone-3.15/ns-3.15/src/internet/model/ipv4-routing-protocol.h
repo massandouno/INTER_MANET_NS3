@@ -26,8 +26,37 @@
 #include "ns3/ipv4-interface-address.h"
 #include "ipv4.h"
 #include "ns3/output-stream-wrapper.h"
+#include <map>
 
 namespace ns3 {
+
+/**
+ *struct of the inter-manet routing table
+ */
+ struct iMRoutingTableEntry
+{
+  Ipv4Address destAddr; ///< Address of the destination node.
+  Ipv4Address nextAddr; ///< Address of the next hop.
+  Ipv4InterfaceAddress interface; ///< Interface index
+  uint32_t distance; ///< Distance in hops to the destination.
+  Time lifetime;
+  bool vSeqNo;
+  uint32_t m_seqNo;
+  Ptr<NetDevice> dev;
+  int m_flag;
+  
+
+
+  iMRoutingTableEntry () : // default values
+                         destAddr (), nextAddr (),
+                         interface (), distance (0),
+						 lifetime (Simulator::Now ()),
+						 vSeqNo (false),m_seqNo (0),
+						 dev (0) {};
+						 
+};
+
+typedef  std::map<Ipv4Address, iMRoutingTableEntry> iMRoutingTable;
 
 class Ipv4MulticastRoute;
 class Ipv4Route;
@@ -152,6 +181,10 @@ public:
    * \param stream the ostream the Routing table is printed to
    */
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const = 0;
+
+  virtual iMRoutingTable GetRoutingTable() = 0;
+
+  virtual void SetRoutingTable(iMRoutingTable iMtable) = 0;
 };
 
 } // namespace ns3

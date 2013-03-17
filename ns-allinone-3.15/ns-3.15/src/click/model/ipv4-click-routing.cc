@@ -546,6 +546,19 @@ Ipv4ClickRouting::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress 
 {
 }
 
+iMRoutingTable
+	Ipv4ClickRouting::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+
+void
+	Ipv4ClickRouting::SetRoutingTable(iMRoutingTable iMtable)
+{}
+
+
 
 } // namespace ns3
 
@@ -741,5 +754,7 @@ int simclick_sim_command (simclick_node_t *simnode, int cmd, ...)
     }
   return retval;
 }
+
+
 
 #endif // NS3_CLICK

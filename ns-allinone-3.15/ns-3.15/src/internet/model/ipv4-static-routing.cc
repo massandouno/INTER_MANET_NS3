@@ -772,4 +772,18 @@ Ipv4StaticRouting::SourceAddressSelection (uint32_t interfaceIdx, Ipv4Address de
   return candidate;
 }
 
+iMRoutingTable
+Ipv4StaticRouting::GetRoutingTable()
+{
+	iMRoutingTable temp;
+	return temp;
+
+}
+
+void
+Ipv4StaticRouting::SetRoutingTable(iMRoutingTable iMtable)
+{
+}
+
+
 } // namespace ns3

@@ -244,6 +244,7 @@ public:
   bool MarkLinkAsUnidirectional (Ipv4Address neighbor, Time blacklistTimeout);
   /// Print routing table
   void Print (Ptr<OutputStreamWrapper> stream) const;
+  std::map<Ipv4Address, RoutingTableEntry> GetEntries() {return m_ipv4AddressEntry;}
 
 private:
   std::map<Ipv4Address, RoutingTableEntry> m_ipv4AddressEntry;

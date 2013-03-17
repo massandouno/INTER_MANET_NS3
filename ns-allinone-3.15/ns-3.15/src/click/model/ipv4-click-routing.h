@@ -241,6 +241,9 @@ public:
   virtual void NotifyInterfaceDown (uint32_t interface);
   virtual void NotifyAddAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
+  iMRoutingTable GetRoutingTable();
+
+  void SetRoutingTable(iMRoutingTable iMtable);
 
 private:
   std::string m_clickFile;

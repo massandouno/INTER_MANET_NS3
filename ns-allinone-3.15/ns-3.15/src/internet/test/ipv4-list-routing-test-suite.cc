@@ -35,6 +35,9 @@ public:
   void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address) {}
   void SetIpv4 (Ptr<Ipv4> ipv4) {}
   void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const {}
+  iMRoutingTable GetRoutingTable(){iMRoutingTable temp;return temp;}
+
+  void SetRoutingTable(iMRoutingTable iMtable){}
 };
 
 class Ipv4BRouting : public Ipv4RoutingProtocol {
@@ -49,6 +52,9 @@ public:
   void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address) {}
   void SetIpv4 (Ptr<Ipv4> ipv4) {}
   void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const {}
+  iMRoutingTable GetRoutingTable(){iMRoutingTable temp;return temp;}
+
+  void SetRoutingTable(iMRoutingTable iMtable){}
 };
 
 class Ipv4ListRoutingNegativeTestCase : public TestCase
