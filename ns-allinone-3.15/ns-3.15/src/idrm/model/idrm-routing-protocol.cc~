@@ -242,6 +242,7 @@ RoutingProtocol::Start ()
   m_ecb = MakeCallback (&RoutingProtocol::Drop,this);
   m_periodicUpdateTimer.SetFunction (&RoutingProtocol::SendPeriodicUpdate,this);
   m_periodicUpdateTimer.Schedule (MicroSeconds (m_uniformRandomVariable->GetInteger (0,1000)));
+  pnd = m_ipv4->GetObject<Node>();
 }
 
 Ptr<Ipv4Route>
@@ -538,6 +539,23 @@ RoutingProtocol::RecvIdrm (Ptr<Socket> socket)
   uint32_t packetSize = packet->GetSize ();
   NS_LOG_FUNCTION (m_mainAddress << " received idrm packet of size: " << packetSize
                                  << " and packet id: " << packet->GetUid ());
+  Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+  if(pnd->GetNType()==1)
+  {
+        RoutingTableEntry temp;
+        if(!m_routingTable.LookupRoute(sender,temp))
+        {
+            pnd->SetNType(2);
+        }
+  }
+  if(pnd->GetNType()==0 || pnd->GetNType()==1)
+  {
+		Ipv4Mask msk("255.255.255.0");
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),sender))
+		{
+			return;
+		}
+  }
   uint32_t count = 0;
   m_nb.Update(sender,Seconds(3));
   m_nc[receiver] = m_nb.GetSize();

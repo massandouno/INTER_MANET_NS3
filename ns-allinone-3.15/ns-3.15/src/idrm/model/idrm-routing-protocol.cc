@@ -539,6 +539,23 @@ RoutingProtocol::RecvIdrm (Ptr<Socket> socket)
   uint32_t packetSize = packet->GetSize ();
   NS_LOG_FUNCTION (m_mainAddress << " received idrm packet of size: " << packetSize
                                  << " and packet id: " << packet->GetUid ());
+  Ptr<Node> pnd=m_ipv4->GetObject<Node>();
+  if(pnd->GetNType()==1)
+  {
+        RoutingTableEntry temp;
+        if(!m_routingTable.LookupRoute(sender,temp))
+        {
+            pnd->SetNType(2);
+        }
+  }
+  if(pnd->GetNType()==0 || pnd->GetNType()==1)
+  {
+		Ipv4Mask msk("255.255.255.0");
+		if(!msk.IsMatch(m_ipv4->GetAddress(1,0).GetLocal(),sender))
+		{
+			return;
+		}
+  }
   uint32_t count = 0;
   m_nb.Update(sender,Seconds(3));
   m_nc[receiver] = m_nb.GetSize();
@@ -768,6 +785,7 @@ RoutingProtocol::RecvIdrm (Ptr<Socket> socket)
             }
         }
     }
+    /*
   for(;packetSize > 0; packetSize = packetSize -12)
   {
   	IdrmHeader nbHeader;
@@ -785,6 +803,7 @@ RoutingProtocol::RecvIdrm (Ptr<Socket> socket)
   	 	pnd->couldBeGateway = false;
   	 	}
   	}
+  	*/
   //std::cout<< "test3 could be gw?: " << pnd->couldBeGateway <<endl;
   std::map<Ipv4Address, RoutingTableEntry> allRoutes;
   m_advRoutingTable.GetListOfAllRoutes (allRoutes);
@@ -813,6 +832,7 @@ RoutingProtocol::SendTriggeredUpdate ()
       Ptr<Socket> socket = j->first;
       Ipv4InterfaceAddress iface = j->second;
       Ptr<Packet> packet = Create<Packet> ();
+      /*
 	  for(std::map<Ipv4Address, int>::const_iterator i = m_nc.begin (); i != m_nc.end (); ++i)
 	  {
 	  	idrmHeader.SetDst(i->first);
@@ -820,6 +840,7 @@ RoutingProtocol::SendTriggeredUpdate ()
 		idrmHeader.SetHopCount(0);
 		packet->AddHeader(idrmHeader);
 	  }
+	  */
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator i = allRoutes.begin (); i != allRoutes.end (); ++i)
         {
           NS_LOG_LOGIC ("Destination: " << i->second.GetDestination ()
@@ -905,6 +926,7 @@ RoutingProtocol::SendPeriodicUpdate ()
       Ptr<Packet> packet = Create<Packet> ();
       IdrmHeader idrmHeader;
 	  int routeCount = 0;
+	  /*
 	  for(std::map<Ipv4Address, int>::const_iterator i = m_nc.begin (); i != m_nc.end (); ++i)
 	  {
 	  	idrmHeader.SetDst(i->first);
@@ -912,6 +934,7 @@ RoutingProtocol::SendPeriodicUpdate ()
 		idrmHeader.SetHopCount(0);
 		packet->AddHeader(idrmHeader);
 	  }
+	  */
       for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator i = allRoutes.begin (); i != allRoutes.end (); ++i)
         {
           if (i->second.GetHop () == 0)
